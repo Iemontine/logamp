@@ -1,39 +1,60 @@
 import gymnasium as gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from environment import prac_env_v0
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+from collections import deque
+import time
 
 # Use the environment class directly with StableBaselines3
+device = "cpu"
 env = prac_env_v0()
 eval_env = prac_env_v0()
 
-import torch.nn as nn
+print("🚀 Starting PPO Training for Target Reaching Task")
+print(f"   Environment: Variable resistor simulation")
+print(f"   Action space: {len(env.action_list)} discrete actions")
+print(f"   Action values: {env.action_list}")
+print(f"   State bounds: [-375, 375]")
+print(f"   Target bounds: [-275, 275]")
+print("=" * 60)
 
 # Improved PPO hyperparameters for precise targeting
 model = PPO(
     'MlpPolicy', 
     env, 
-    verbose=0,
-#     learning_rate=1e-4,   # Lower learning rate for more stable learning
-#     n_steps=1024,         # Smaller steps for more frequent updates
-#     batch_size=32,        # Smaller batch for better gradient estimates
-#     n_epochs=20,          # More epochs to learn from each batch
-#     gamma=0.995,          # Higher gamma to care more about long-term rewards
-#     gae_lambda=0.98,      # Higher GAE lambda for better credit assignment
-#     clip_range=0.1,       # Smaller clip range for more conservative updates
-#     ent_coef=0.001,       # Lower entropy to focus on exploitation
-#     vf_coef=1.0,          # Higher value function coefficient
-#     max_grad_norm=0.3,    # Stricter gradient clipping
+    verbose=1,
+    device=device,            # Explicitly set device for GPU acceleration
+    learning_rate=3e-4,       # Good starting learning rate
+    n_steps=2048,             # More steps for better sample efficiency
+    batch_size=64,            # Reasonable batch size
+    n_epochs=10,              # Standard number of epochs
+    tensorboard_log="./tensorboard_logs/"
 )
 
-# # Train with less frequent evaluation to focus on learning
-# eval_callback = EvalCallback(eval_env, best_model_save_path="./best_model/",
-#                              log_path="./logs/", eval_freq=5000,
-#                              deterministic=True, render=False, n_eval_episodes=10)
+print("🏃 Starting training...")
+print(f"🔧 Model device: {model.device}")
+start_time = time.time()
 
-model.learn(total_timesteps=10000) #, callback=eval_callback)
+model.learn(
+    total_timesteps=1000000,
+    progress_bar=True
+)
+
+training_time = time.time() - start_time
+print(f"\n✅ Training completed! Time taken: {training_time:.2f} seconds")
 
 # Save the trained model for evaluation
 model.save("ppo_model.zip")
+print("💾 Model saved as ppo_model.zip")
 
-print("Training completed! Model saved as ppo_model.zip")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# print(f"🖥️  Using device: {device}")
+# if torch.cuda.is_available():
+#     print(f"   GPU: {torch.cuda.get_device_name(0)}")
+#     print(f"   CUDA Version: {torch.version.cuda}")
+#     print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+#     print("=" * 60)
