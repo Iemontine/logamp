@@ -12,9 +12,8 @@ from gym.utils import seeding
 class prac_env_v0(gym.Env):    
     def __init__(self):
         super(prac_env_v0, self).__init__()
-        self.action_list = [-50, -25, -10, -5, -2, -1, -0.5, -0.1, -0.01, 0.01, 0.1, 0.5, 1, 2, 5, 10, 25, 50]
+        self.action_list = [-50, -20, -10, -5, -2, -1, 1, 2, 5, 10, 20, 50]
         self.action_space = spaces.Discrete(len(self.action_list))
-        # Expand observation space to include both state and target
         self.observation_space = spaces.Box(
             low=np.array([-375.0, -275.0]), 
             high=np.array([375.0, 275.0]),
@@ -22,8 +21,8 @@ class prac_env_v0(gym.Env):
         )
         self.state = 0.0
         self.target = 0.0
-        self.current = 0.0  # For compatibility with evaluation
-        self.max_steps = 200  # Prevent infinite episodes
+        self.current = 0.0
+        self.max_steps = 200
         self.step_count = 0
 
     def seed(self, seed=None):
@@ -34,17 +33,17 @@ class prac_env_v0(gym.Env):
     def reset(self, seed=None, options=None):
         #Reset the environment to an initial state
         if seed is not None:
-            self.seed(seed)
-
-        # Start closer to center for easier learning initially
+            self.seed(seed)        # Start closer to center for easier learning initially
         self.state = self.np_random.uniform(-100.0, 100.0)
         self.target = self.np_random.uniform(-200.0, 200.0)
+        
         self.current = self.target  # For compatibility with evaluation
         self.step_count = 0
         
         info = {
             'target': self.target,
-            'initial_state': self.state
+            'initial_state': self.state,
+            'target_bounds': [self.target_min, self.target_max]
         }
         
         # Return both state and target as observation
@@ -52,7 +51,11 @@ class prac_env_v0(gym.Env):
     
     def step(self, action):
         self.step_count += 1
-        next_state = self.state + self.action_list[action]
+
+        # Calculate error before and after action
+        prev_error = abs(self.state - self.target)
+        self.state = self.state + self.action_list[action]
+        current_error = abs(self.state - self.target)
 
         info = {
             'previous_state': self.state,
@@ -61,38 +64,22 @@ class prac_env_v0(gym.Env):
             'step_count': self.step_count
         }
 
-        # Update state
-        self.state = next_state
-
-        # Calculate reward with better shaping
-        distance = abs(self.state - self.target)
-        
-        # Calculate previous distance for reward shaping
-        prev_distance = abs(info['previous_state'] - self.target) if 'previous_state' in info else distance
-        
-        # Reward shaping: positive reward for getting closer, negative for moving away
-        distance_reward = prev_distance - distance  # Positive when getting closer
-        
-        # Scale the distance reward to make it more significant
-        shaped_reward = distance_reward * 10
-        
-        terminated = False
-        truncated = False
-        
-        if distance < 0.5:  # Success condition
-            reward = 100 + shaped_reward  # Success bonus plus distance reward
-            terminated = True
-        elif abs(self.state) > 375.0:  # Out of bounds
-            reward = -10 + shaped_reward  # Penalty but still consider progress
-            terminated = True
-        elif self.step_count >= self.max_steps:  # Episode timeout
-            reward = -1 + shaped_reward  # Small penalty plus distance reward
-            truncated = True
+        if current_error < prev_error:
+            reward = 1.0 + (current_error * 1e-3)
         else:
-            # Give continuous feedback based on distance improvement
-            reward = shaped_reward - 0.1  # Small step penalty to encourage efficiency
+            reward = -1.0 + (current_error * 1e-3)
 
-        return np.array([self.state, self.target], dtype=np.float32), reward, terminated, truncated, info
+        # Check if we're close enough to target
+        threshold = 2.0
+        done = False
+        if current_error <= threshold:
+            done = True
+            reward += 10.0
+        
+        # Check if we've exceeded maximum steps
+        truncated = self.step_count >= self.max_steps
+        
+        return np.array([self.state, self.target], dtype=np.float32), reward, done, truncated, info
 
     def close(self):
         pass

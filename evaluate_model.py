@@ -3,16 +3,8 @@ from stable_baselines3 import PPO
 from environment import prac_env_v0
 
 # Load the trained model (try improved version first)
-try:
-    model = PPO.load("ppo_model_improved.zip")
-    print("📊 Loaded improved model")
-except:
-    try:
-        model = PPO.load("./best_model/best_model.zip")
-        print("📊 Loaded best model from training")
-    except:
-        model = PPO.load("ppo_model.zip")
-        print("📊 Loaded original model")
+model = PPO.load("ppo_model.zip")
+print("📊 Loaded original model")
 
 env = prac_env_v0()
 
