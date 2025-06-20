@@ -12,18 +12,27 @@ from gym.utils import seeding
 class prac_env_v0(gym.Env):    
     def __init__(self):
         super(prac_env_v0, self).__init__()
-        self.action_list = [-50, -20, -10, -5, -2, -1, 1, 2, 5, 10, 20, 50]
+        # Smaller, more controlled action list for stable learning
+        self.action_list = [-50, -20, -10, -5, -2, -1, -0.5, -0.1, 0.1, 0.5, 1, 2, 5, 10, 20, 50]
         self.action_space = spaces.Discrete(len(self.action_list))
+        
+        # State bounds
+        self.state_min = -400.0
+        self.state_max = 400.0
+        self.target_min = -250.0
+        self.target_max = 250.0
+
+        # Bounds to encourage staying in reasonable range
         self.observation_space = spaces.Box(
-            low=np.array([-375.0, -275.0]), 
-            high=np.array([375.0, 275.0]),
+            low=np.array([self.state_min, self.target_min]), 
+            high=np.array([self.state_max, self.target_max]),
             shape=(2,), dtype=np.float32
         )
-        self.state = 0.0
-        self.target = 0.0
+        
         self.current = 0.0
-        self.max_steps = 200
+        self.target = 0.0
         self.step_count = 0
+        self.max_steps = 200
 
     def seed(self, seed=None):
         #Seed is used to generate random numbers, used for reproducibility
@@ -33,53 +42,52 @@ class prac_env_v0(gym.Env):
     def reset(self, seed=None, options=None):
         #Reset the environment to an initial state
         if seed is not None:
-            self.seed(seed)        # Start closer to center for easier learning initially
-        self.state = self.np_random.uniform(-100.0, 100.0)
-        self.target = self.np_random.uniform(-200.0, 200.0)
-        
-        self.current = self.target  # For compatibility with evaluation
+            self.seed(seed)
+       
+        self.target = self.np_random.uniform(self.target_min, self.target_max)      # Start closer to target for easier learning
+        self.current = self.np_random.uniform(self.state_min, self.state_max)
         self.step_count = 0
+        self.best_error = abs(self.current - self.target)
         
         info = {
             'target': self.target,
-            'initial_state': self.state,
-            'target_bounds': [self.target_min, self.target_max]
+            'initial_state': self.current,
+            'target_bounds': [self.target_min, self.target_max],
+            'initial_error': self.best_error
         }
-        
+
         # Return both state and target as observation
-        return np.array([self.state, self.target], dtype=np.float32), info
+        return np.array([self.current, self.target], dtype=np.float32), info
+    
+    def reward_function(self, x, x_goal, done):
+        ε = 0.5
+        distance = abs(x - x_goal)
+        if done and distance < ε:
+            return 100  # Strong goal bonus
+        return -1 - np.log(1 + distance)
     
     def step(self, action):
         self.step_count += 1
 
-        # Calculate error before and after action
-        prev_error = abs(self.state - self.target)
-        self.state = self.state + self.action_list[action]
-        current_error = abs(self.state - self.target)
+        # Perform action, getting errors
+        # prev_error = abs(self.current - self.target)
+        self.current += self.action_list[action]
+        self.current = np.clip(self.current, self.state_min, self.state_max)    # Clip state to bounds
+        # current_error = abs(self.current - self.target)
+
+        done = self.step_count >= self.max_steps
+        truncated = False
+        reward = self.reward_function(self.current, self.target, done)
 
         info = {
-            'previous_state': self.state,
-            'action_value': self.action_list[action],
             'target': self.target,
-            'step_count': self.step_count
+            'step_count': self.step_count,
+            'max_steps': self.max_steps,
+            'current_error': abs(self.current - self.target),
+            'best_error': self.best_error
         }
 
-        if current_error < prev_error:
-            reward = 1.0 + (current_error * 1e-3)
-        else:
-            reward = -1.0 + (current_error * 1e-3)
-
-        # Check if we're close enough to target
-        threshold = 2.0
-        done = False
-        if current_error <= threshold:
-            done = True
-            reward += 10.0
-        
-        # Check if we've exceeded maximum steps
-        truncated = self.step_count >= self.max_steps
-        
-        return np.array([self.state, self.target], dtype=np.float32), reward, done, truncated, info
+        return np.array([self.current, self.target], dtype=np.float32), reward, done, truncated, info
 
     def close(self):
         pass

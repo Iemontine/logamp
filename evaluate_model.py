@@ -3,7 +3,7 @@ from stable_baselines3 import PPO
 from environment import prac_env_v0
 
 # Load the trained model (try improved version first)
-model = PPO.load("ppo_model.zip")
+model = PPO.load("models/ppo_checkpoint_20000_steps.zip")
 print("📊 Loaded original model")
 
 env = prac_env_v0()
@@ -36,7 +36,7 @@ for ep in range(episodes):
             break
     
     # Check success and precision
-    final_value = env.state  # The final position we reached
+    final_value = env.current  # The final position we reached
     target = env.target     # The target we were trying to reach
     error = abs(final_value - target)
     distances.append(error)
