@@ -1,82 +1,80 @@
+import os
+import glob
 import numpy as np
 from stable_baselines3 import PPO
-from environment import prac_env_v0
+from environment import LogAmpEnvironment
 
-# Load the trained model (try improved version first)
-model = PPO.load("models/ppo_checkpoint_20000_steps.zip")
-print("📊 Loaded original model")
 
-env = prac_env_v0()
-
-episodes = 20
-success_count = 0
-exact_count = 0
-total_steps = 0
-total_rewards = []
-distances = []
-
-print("🎯 Evaluating model performance...")
-print("=" * 50)
-
-for ep in range(episodes):
-    obs, _ = env.reset()
-    done = False
-    truncated = False
-    total_reward = 0
-    step_count = 0
+def evaluate_model(model_path: str, n_episodes: int = 200) -> dict:
+    """Evaluate a single model and return performance metrics."""
+    env = LogAmpEnvironment()
+    model = PPO.load(model_path, env=env)
     
-    while not (done or truncated):
-        action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, truncated, info = env.step(action)
-        total_reward += reward
-        step_count += 1
+    rewards = []
+    successes = 0
+    
+    for _ in range(n_episodes):
+        obs, _ = env.reset()
+        episode_reward = 0
+        done = False
         
-        # Safety check to prevent infinite loops
-        if step_count > 300:
-            break
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, truncated, _ = env.step(action)
+            episode_reward += reward
+            done = done or truncated
+        
+        rewards.append(episode_reward)
+        
+        # Check if target was reached (distance <= 0.5)
+        if abs(obs[0] - obs[1]) <= 0.5:
+            successes += 1
     
-    # Check success and precision
-    final_value = env.current  # The final position we reached
-    target = env.target     # The target we were trying to reach
-    error = abs(final_value - target)
-    distances.append(error)
-    
-    if error <= 5.0:  # Success if within 5 units
-        success_count += 1
-        if error <= 0.5:  # Exact if within 0.5 units
-            exact_count += 1
-    
-    total_steps += step_count
-    total_rewards.append(total_reward)
-    
-    status = "✅" if error <= 5.0 else "❌"
-    precision = "🎯" if error <= 0.5 else "📍" if error <= 2.0 else "📌"
-    
-    print(f"{status} Episode {ep+1:2d}: {step_count:3d} steps, reward: {total_reward:6.1f}, "
-          f"target: {target:6.2f}, final: {final_value:6.2f}, error: {error:5.3f} {precision}")
+    return {
+        'name': os.path.basename(model_path),        'success_rate': successes / n_episodes,
+        'avg_reward': np.mean(rewards)
+    }
 
-print("\n" + "=" * 60)
-print("=== EVALUATION SUMMARY ===")
-print(f"Episodes: {episodes}")
-print(f"Success rate (≤5.0): {success_count}/{episodes} ({100*success_count/episodes:.1f}%)")
-print(f"Precision rate (≤0.5): {exact_count}/{episodes} ({100*exact_count/episodes:.1f}%)")
-print(f"Average steps: {total_steps/episodes:.1f}")
-print(f"Average reward: {np.mean(total_rewards):.2f}")
-print(f"Best reward: {np.max(total_rewards):.2f}")
-print(f"Average distance error: {np.mean(distances):.3f}")
-print(f"Median distance error: {np.median(distances):.3f}")
-print(f"Best distance error: {np.min(distances):.3f}")
 
-# Performance categories
-excellent = sum(1 for d in distances if d <= 0.5)
-good = sum(1 for d in distances if 0.5 < d <= 2.0)
-fair = sum(1 for d in distances if 2.0 < d <= 5.0)
-poor = sum(1 for d in distances if d > 5.0)
+def main():
+    """Evaluate all models and print results."""
+    models_dir = "./models/"
+    model_files = glob.glob(os.path.join(models_dir, "*.zip"))
+    
+    if not model_files:
+        print("No models found in ./models/")
+        return
+    
+    print(f"Evaluating {len(model_files)} models...\n")
+    
+    results = []
+    for model_file in model_files:
+        try:
+            result = evaluate_model(model_file)
+            results.append(result)
+            print(f"✓ {result['name']}")
+        except Exception as e:
+            print(f"✗ {os.path.basename(model_file)} - Error: {e}")
+    
+    if not results:
+        print("No models could be evaluated.")
+        return
+    
+    # Sort by success rate, then by average reward
+    results.sort(key=lambda x: (x['success_rate'], x['avg_reward']), reverse=True)
+    
+    print(f"\n{'='*50}")
+    print("RESULTS (ranked by performance)")
+    print(f"{'='*50}")
+    print(f"{'Rank':<4} {'Model':<25} {'Success%':<9} {'Avg Reward':<10}")
+    print("-" * 50)
+    
+    for i, result in enumerate(results, 1):
+        name = result['name'][:24] if len(result['name']) > 24 else result['name']
+        print(f"{i:<4} {name:<25} {result['success_rate']:.1%}     {result['avg_reward']:>6.1f}")
+    
+    print(f"\nBest model: {results[0]['name']} ({results[0]['success_rate']:.1%} success rate)")
 
-print(f"\n📈 Performance Distribution:")
-print(f"   Excellent (≤0.5): {excellent}/{episodes} ({100*excellent/episodes:.1f}%)")
-print(f"   Good (0.5-2.0):   {good}/{episodes} ({100*good/episodes:.1f}%)")
-print(f"   Fair (2.0-5.0):   {fair}/{episodes} ({100*fair/episodes:.1f}%)")
-print(f"   Poor (>5.0):      {poor}/{episodes} ({100*poor/episodes:.1f}%)")
 
-env.close()
+if __name__ == "__main__":
+    main()
