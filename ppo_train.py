@@ -6,35 +6,31 @@ from environment import LogAmpEnvironment
 import time
 import os
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.schedules import LinearSchedule
 
 # Create output directories
 os.makedirs("./models", exist_ok=True)
 os.makedirs("./tensorboard_logs", exist_ok=True)
 
 # Set random seeds for reproducibility
-SEED = 42
+SEED = 113350
 VERBOSE = 1
 set_random_seed(SEED)
 
-vec_env = make_vec_env(LogAmpEnvironment, n_envs=1, seed=SEED, env_kwargs={
-    'max_steps': 200,
-    'target_min': -1000.0,
-    'target_max': 1000.0,
-    'start_min': -500.0,
-    'start_max': 500.0,
-})
-# vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+env = LogAmpEnvironment(max_steps=200, target_min=-500.0, target_max=500.0, start_min=-200.0, start_max=200.0)
+env.reset(seed=SEED)  # Seed the environment directly
 
 model = PPO(
     policy='MlpPolicy',
-    env=vec_env,
+    env=env,
+    learning_rate=LinearSchedule(3e-4, 1e-5),
     tensorboard_log="./tensorboard_logs/",
     device="cpu",
     verbose=VERBOSE,
     seed=SEED
 )
 
-total_timesteps = 250_000
+total_timesteps = 500_000
 
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,

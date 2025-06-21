@@ -7,8 +7,8 @@ from environment import LogAmpEnvironment
 
 def evaluate_model(model_path: str, n_episodes: int = 200) -> dict:
     """Evaluate a single model and return performance metrics."""
-    env = LogAmpEnvironment()
-    model = PPO.load(model_path, env=env)
+    env = LogAmpEnvironment(max_steps=200, target_min=-500.0, target_max=500.0, start_min=-200.0, start_max=200.0)
+    model = PPO.load(model_path, device="cpu", env=env)
     
     rewards = []
     successes = 0

@@ -8,7 +8,7 @@ from enum import Enum
 
 
 class LogAmpEnvironment(gym.Env):
-    def __init__(self, max_steps=200, target_min=-1000.0, target_max=1000.0, start_min=-500.0, start_max=500.0):
+    def __init__(self, max_steps=200, target_min=-500.0, target_max=500.0, start_min=-200.0, start_max=200.0):
         super(LogAmpEnvironment, self).__init__()
 
         # Define the possible actions and size of action space
@@ -41,7 +41,7 @@ class LogAmpEnvironment(gym.Env):
 
     def reset(self, seed=None):
         # Reset the environment to an initial state
-        super().reset(seed=seed)
+        # super().reset(seed=seed)
 
         # Randomly select a target and starting position within the defined bounds
         self.target = self.np_random.uniform(self.target_min, self.target_max)
