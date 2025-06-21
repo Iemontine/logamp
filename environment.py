@@ -5,14 +5,13 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from enum import Enum
-from gym.utils import seeding
 
 
 class LogAmpEnvironment(gym.Env):
     def __init__(self):
         super(LogAmpEnvironment, self).__init__()
 
-        # Define the possible actions and the action space
+        # Define the possible actions and size of action space
         self.action_list = [-100, -10, -1, -0.1, 0.1, 1, 10, 100]
         self.action_space = spaces.Discrete(len(self.action_list))
 
@@ -35,14 +34,9 @@ class LogAmpEnvironment(gym.Env):
         self.target = 0.0
         self.step_count = 0
 
-    def seed(self, seed=None):
-        # Seed is used to generate random numbers, used for reproducibility
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None):
         # Reset the environment to an initial state
-        self.seed(seed)
+        super().reset(seed=seed)
 
         # Randomly select a target and starting position within the defined bounds
         self.target = self.np_random.uniform(self.target_min, self.target_max)
@@ -85,11 +79,11 @@ class LogAmpEnvironment(gym.Env):
         target_reached = distance <= 0.5
 
         # Episode termination conditions
-        done = self.step_count >= self.max_steps or target_reached
-        truncated = False
+        terminated = target_reached
+        truncated = self.step_count >= self.max_steps
 
         # Calculate reward
-        reward = self.reward_function(self.current, self.target, done)
+        reward = self.reward_function(self.current, self.target, terminated or truncated)
 
         # Create the observation, which is a 2D array with current state and target
         obs = np.array([self.current, self.target], dtype=np.float32)
@@ -97,13 +91,13 @@ class LogAmpEnvironment(gym.Env):
             'target': self.target,
         }
 
-        # if done:
+        # if terminated:
         #     if target_reached:
         #         print(f"Target reached in {self.step_count} steps! Final State: {self.current:.2f}, Target: {self.target:.2f}")
         #     else:
         #         print(f"Episode ended after {self.step_count} steps. Final State: {self.current:.2f}, Target: {self.target:.2f}")
 
-        return obs, reward, done, truncated, info
+        return obs, reward, terminated, truncated, info
 
     def close(self):
         pass
