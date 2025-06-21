@@ -88,8 +88,11 @@ class LogAmpEnvironment(gym.Env):
         done = self.step_count >= self.max_steps or target_reached
         truncated = False
 
+        # Calculate reward
         reward = self.reward_function(self.current, self.target, done)
 
+        # Create the observation, which is a 2D array with current state and target
+        obs = np.array([self.current, self.target], dtype=np.float32)
         info = {
             'target': self.target,
         }
@@ -100,7 +103,7 @@ class LogAmpEnvironment(gym.Env):
         #     else:
         #         print(f"Episode ended after {self.step_count} steps. Final State: {self.current:.2f}, Target: {self.target:.2f}")
 
-        return np.array([self.current, self.target], dtype=np.float32), reward, done, truncated, info
+        return obs, reward, done, truncated, info
 
     def close(self):
         pass
