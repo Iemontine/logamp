@@ -1,34 +1,36 @@
-import gymnasium as gym
 from stable_baselines3 import PPO
+from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
-from stable_baselines3.common.utils import set_random_seed
 from environment import LogAmpEnvironment
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-import torch.nn as nn
-from collections import deque
 import time
 import os
 from stable_baselines3.common.callbacks import CheckpointCallback
-
-# Set random seeds for reproducibility
-SEED = 42
-set_random_seed(SEED)
 
 # Create output directories
 os.makedirs("./models", exist_ok=True)
 os.makedirs("./tensorboard_logs", exist_ok=True)
 
-vec_env = make_vec_env(LogAmpEnvironment, n_envs=4, seed=SEED)
+# Set random seeds for reproducibility
+SEED = 42
+VERBOSE = 1
+set_random_seed(SEED)
+
+vec_env = make_vec_env(LogAmpEnvironment, n_envs=1, seed=SEED, env_kwargs={
+    'max_steps': 200,
+    'target_min': -1000.0,
+    'target_max': 1000.0,
+    'start_min': -500.0,
+    'start_max': 500.0,
+})
+# vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True, clip_obs=10.0)
 
 model = PPO(
-    'MlpPolicy', 
-    vec_env, 
-    verbose=1,
-    device="cpu",
+    policy='MlpPolicy',
+    env=vec_env,
     tensorboard_log="./tensorboard_logs/",
+    device="cpu",
+    verbose=VERBOSE,
     seed=SEED
 )
 

@@ -8,7 +8,7 @@ from enum import Enum
 
 
 class LogAmpEnvironment(gym.Env):
-    def __init__(self):
+    def __init__(self, max_steps=200, target_min=-1000.0, target_max=1000.0, start_min=-500.0, start_max=500.0):
         super(LogAmpEnvironment, self).__init__()
 
         # Define the possible actions and size of action space
@@ -16,16 +16,21 @@ class LogAmpEnvironment(gym.Env):
         self.action_space = spaces.Discrete(len(self.action_list))
 
         # Initialize parameters
-        self.max_steps = 200
-        self.state_min = -400.0
-        self.state_max = 400.0
-        self.target_min = -250.0
-        self.target_max = 250.0
+        self.max_steps = max_steps
+        self.target_min = target_min
+        self.target_max = target_max
+        self.start_min = start_min
+        self.start_max = start_max
+
+        print(f"Environment initialized with parameters:")
+        print(f"   Max steps: {self.max_steps}")
+        print(f"   Target bounds: [{self.target_min}, {self.target_max}]")
+        print(f"   Start bounds: [{self.start_min}, {self.start_max}]")
 
         # Shape of the observation space, 2-dimensional: [current state, target state]
         self.observation_space = spaces.Box(
-            low=np.array([self.state_min, self.target_min]),
-            high=np.array([self.state_max, self.target_max]),
+            low=np.array([self.start_min, self.target_min]),
+            high=np.array([self.start_max, self.target_max]),
             shape=(2,), dtype=np.float64
         )
 
@@ -40,7 +45,7 @@ class LogAmpEnvironment(gym.Env):
 
         # Randomly select a target and starting position within the defined bounds
         self.target = self.np_random.uniform(self.target_min, self.target_max)
-        self.current = self.np_random.uniform(self.state_min, self.state_max)
+        self.current = self.np_random.uniform(self.start_min, self.start_max)
 
         # Reset the step count
         self.step_count = 0
@@ -52,8 +57,8 @@ class LogAmpEnvironment(gym.Env):
         info = {
             'target': self.target,
             'target_bounds': [self.target_min, self.target_max],
+            'state_bounds': [self.start_min, self.start_max],
             'initial_state': self.current,
-            'state_bounds': [self.state_min, self.state_max],
         }
 
         return obs, info
@@ -71,7 +76,7 @@ class LogAmpEnvironment(gym.Env):
     def step(self, action):
         # Perform action, clipping it to stay within the state bounds
         self.current += self.action_list[action]
-        self.current = np.clip(self.current, self.state_min, self.state_max)
+        self.current = np.clip(self.current, self.start_min, self.start_max)
         self.step_count += 1
 
         # Check if target is reached
