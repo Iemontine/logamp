@@ -46,3 +46,4 @@ model.learn(
 )
 
 training_time = time.time() - start_time
+print(f"Training completed in {training_time:.2f} seconds")
