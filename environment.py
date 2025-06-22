@@ -21,16 +21,21 @@ class LogAmpEnvironment(gym.Env):
         self.target_max = target_max
         self.start_min = start_min
         self.start_max = start_max
+        
+        # This is used to ensure the agent can reach all possible target values
+        self.state_min = min(start_min, target_min)
+        self.state_max = max(start_max, target_max)
 
         print(f"Environment initialized with parameters:")
         print(f"   Max steps: {self.max_steps}")
         print(f"   Target bounds: [{self.target_min}, {self.target_max}]")
         print(f"   Start bounds: [{self.start_min}, {self.start_max}]")
+        print(f"   State bounds: [{self.state_min}, {self.state_max}]")
 
         # Shape of the observation space, 2-dimensional: [current state, target state]
         self.observation_space = spaces.Box(
-            low=np.array([self.start_min, self.target_min]),
-            high=np.array([self.start_max, self.target_max]),
+            low=np.array([self.state_min, self.target_min]),
+            high=np.array([self.state_max, self.target_max]),
             shape=(2,), dtype=np.float64
         )
 
@@ -41,7 +46,7 @@ class LogAmpEnvironment(gym.Env):
 
     def reset(self, seed=None):
         # Reset the environment to an initial state
-        # super().reset(seed=seed)
+        super().reset(seed=seed)
 
         # Randomly select a target and starting position within the defined bounds
         self.target = self.np_random.uniform(self.target_min, self.target_max)
@@ -76,7 +81,9 @@ class LogAmpEnvironment(gym.Env):
     def step(self, action):
         # Perform action, clipping it to stay within the state bounds
         self.current += self.action_list[action]
-        self.current = np.clip(self.current, self.start_min, self.start_max)
+
+        # Ensure new state remains within the bounds of possible states
+        self.current = np.clip(self.current, self.state_min, self.state_max)
         self.step_count += 1
 
         # Check if target is reached
