@@ -46,7 +46,7 @@ class LogAmpEnvironment(gym.Env):
 
     def reset(self, seed=None):
         # Reset the environment to an initial state
-        super().reset(seed=seed)
+        # super().reset(seed=seed)
 
         # Randomly select a target and starting position within the defined bounds
         self.target = self.np_random.uniform(self.target_min, self.target_max)
